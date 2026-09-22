@@ -50,10 +50,20 @@ def parse_args():
         choices=[1, 2, 3, 4],
         help="选择生成的论文案例 (1: 盗窃, 2: 街头冲突, 3: 归还物品假阳性, 4: 夜雨破坏)"
     )
+    parser.add_argument(
+        "--num_frames", 
+        type=int, 
+        default=49, 
+        choices=[49, 81],
+        help="生成帧数: 49 (约3秒, 防容器内存溢出极稳档); 81 (约5秒满血档)"
+    )
+    parser.add_argument("--width", type=int, default=832, help="视频宽度 (建议: 832 或 768)")
+    parser.add_argument("--height", type=int, default=480, help="视频高度 (建议: 480 或 432)")
     parser.add_argument("--all", action="store_true", help="连续批量生成全部 4 个案例")
-    parser.add_argument("--hd", action="store_true", help="开启 720P (1280x720) 极清模式，默认 832x480 防爆显存")
+    parser.add_argument("--hd", action="store_true", help="开启 720P (1280x720) 极清模式")
     parser.add_argument("--steps", type=int, default=40, help="采样步数 (默认 40 步以获得极致细节)")
     return parser.parse_args()
+
 
 def main():
     args = parse_args()
@@ -82,18 +92,25 @@ def main():
         torch_dtype=torch.float16 # 严禁使用 bfloat16
     )
 
-    # 开启针对 V100 16G 的显存双重保护
+    # 开启针对 V100 16G 的显存与内存保护
     pipe.enable_model_cpu_offload()
     if hasattr(pipe, "enable_vae_slicing"):
         pipe.enable_vae_slicing()
     if hasattr(pipe, "enable_vae_tiling"):
         pipe.enable_vae_tiling()
+    if hasattr(pipe.vae, "enable_tiling"):
+        pipe.vae.enable_tiling()
+    if hasattr(pipe.vae, "enable_slicing"):
+        pipe.vae.enable_slicing()
 
-    # 3. 确定分辨率与时长参数 (严格满血 5 秒: 81 帧 @ 16 fps)
-    num_frames = 81
+    import gc
+
+    # 3. 确定分辨率与时长参数
+    num_frames = args.num_frames
     fps = 16
-    width = 1280 if args.hd else 832
-    height = 720 if args.hd else 480
+    duration = round(num_frames / fps, 2)
+    width = 1280 if args.hd else args.width
+    height = 720 if args.hd else args.height
 
     selected_cases = [1, 2, 3, 4] if args.all else [args.case]
 
@@ -101,10 +118,13 @@ def main():
         info = CASES[case_id]
         print(f"\n=======================================================")
         print(f"🎬 开始生成案例 {case_id}: {info['name']}")
-        print(f"  时长: 5.06 秒 (81 帧 @ {fps} fps)")
+        print(f"  时长: {duration} 秒 ({num_frames} 帧 @ {fps} fps)")
         print(f"  画质规格: {width}x{height} | 推理步数: {args.steps} 步")
         print(f"  提示词: {info['prompt']}")
         print(f"=======================================================")
+
+        gc.collect()
+        torch.cuda.empty_cache()
 
         result = pipe(
             prompt=info["prompt"],
@@ -118,6 +138,10 @@ def main():
         video_frames = result.frames[0]
         export_to_video(video_frames, info["output"], fps=fps)
         print(f"✓ 案例 {case_id} 视频已成功生成并导出至: {info['output']}")
+        
+        gc.collect()
+        torch.cuda.empty_cache()
+
 
     print("\n🎉 全部指定视频生成任务完成！请在 output/ 目录下查看结果。")
 
