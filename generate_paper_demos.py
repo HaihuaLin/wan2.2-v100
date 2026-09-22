@@ -51,22 +51,21 @@ def parse_args():
         help="选择生成的论文案例 (1: 盗窃, 2: 街头冲突, 3: 归还物品假阳性, 4: 夜雨破坏)"
     )
     parser.add_argument(
-        "--ultra", 
-        action="store_true", 
-        help="【画质天花板模式】自动配置: 720P (1280x720) 极清 + 50 步精细采样 + 3秒 (49帧)，不爆内存且画质最高"
-    )
-    parser.add_argument(
         "--num_frames", 
         type=int, 
         default=49, 
         choices=[49, 81],
-        help="生成帧数: 49 (约3秒, 防容器内存溢出极稳档); 81 (约5秒满血档)"
+        help="生成帧数: 默认 49 帧 (约3秒, 防容器内存溢出极稳档)"
     )
-    parser.add_argument("--width", type=int, default=832, help="视频宽度 (建议: 832 或 1280)")
-    parser.add_argument("--height", type=int, default=480, help="视频高度 (建议: 480 或 720)")
+    parser.add_argument("--width", type=int, default=832, help="视频宽度 (默认 832，32 的整倍数)")
+    parser.add_argument("--height", type=int, default=480, help="视频高度 (默认 480，32 的整倍数)")
+    parser.add_argument("--steps", type=int, default=30, help="采样步数 (默认 30 步，速度快且质量好)")
     parser.add_argument("--all", action="store_true", help="连续批量生成全部 4 个案例")
-    parser.add_argument("--hd", action="store_true", help="开启 720P (1280x720) 模式")
-    parser.add_argument("--steps", type=int, default=40, help="采样步数 (默认 40 步; --ultra 模式自动为 50 步)")
+    parser.add_argument(
+        "--safe", 
+        action="store_true", 
+        help="【极简防爆档】使用 640x384 分辨率，极致节约内存"
+    )
     return parser.parse_args()
 
 
@@ -112,18 +111,15 @@ def main():
     import gc
 
     # 3. 确定分辨率与时长参数
-    if args.ultra:
-        print("★ 已激活【画质天花板模式】: 720P (1280x720) + 50 步深度去噪 + 3.06秒 (49帧)")
-        width = 1280
-        height = 720
-        steps = 50
-        num_frames = 49
+    if args.safe:
+        width = 640
+        height = 384
     else:
-        num_frames = args.num_frames
-        width = 1280 if args.hd else args.width
-        height = 720 if args.hd else args.height
-        steps = args.steps
+        width = args.width
+        height = args.height
 
+    num_frames = args.num_frames
+    steps = args.steps
     fps = 16
     duration = round(num_frames / fps, 2)
     selected_cases = [1, 2, 3, 4] if args.all else [args.case]
@@ -131,13 +127,11 @@ def main():
     for case_id in selected_cases:
         info = CASES[case_id]
         prompt = info["prompt"]
-        if args.ultra:
-            prompt += ", cinematic lighting, photorealistic, 8k uhd, sharp focus, masterpiece, crystal clear surveillance details"
 
         print(f"\n=======================================================")
         print(f"🎬 开始生成案例 {case_id}: {info['name']}")
         print(f"  时长: {duration} 秒 ({num_frames} 帧 @ {fps} fps)")
-        print(f"  画质规格: {width}x{height} | 推理步数: {steps} 步")
+        print(f"  画质规格: {width}x{height} (480P超稳档) | 推理步数: {steps} 步")
         print(f"  提示词: {prompt}")
         print(f"=======================================================")
 
@@ -152,6 +146,7 @@ def main():
             num_inference_steps=steps,
             guidance_scale=7.0
         )
+
 
 
         video_frames = result.frames[0]
