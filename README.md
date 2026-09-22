@@ -36,17 +36,40 @@ chmod +x setup_v100.sh
 ./setup_v100.sh
 ```
 
-### 2. 文生视频 (Text-to-Video)
+### 2. 论文主题专属 5 秒高画质视频合成
+内置《EvoSherlock》核心实验所用的 4 类安全事件与因果反事实场景：
+- **案例 1**：盗窃行为（Theft - 论文核心实例文生视频）
+- **案例 2**：街头冲突（Conflict - 论文跨事件混淆对照）
+- **案例 3**：机制干预 $do(M)$ 近负样本（捡拾归还物品，消除假阳性误报）
+- **案例 4**：环境干预 $do(E)$（夜雨低照度破坏行为）
+
+```bash
+# 生成案例 1 (5秒满血 81 帧，默认 40 步超清)
+python generate_paper_demos.py --case 1
+
+# 一键批量生成全部 4 个案例
+python generate_paper_demos.py --all
+
+# 若想尝试 720P 极清电影画质，追加 --hd 参数
+python generate_paper_demos.py --case 1 --hd
+```
+
+### 3. 自定义文生视频 (Text-to-Video)
 ```bash
 python infer_ti2v_5b.py \
   --prompt "A futuristic flying car cruising through neon-lit cyberpunk city, rainy night, cinematic lighting" \
+  --width 832 --height 480 \
+  --num_frames 81 \
   --output output/cyberpunk.mp4
 ```
 
-### 3. 图生视频 (Image-to-Video)
+### 4. 自定义图生视频 (Image-to-Video)
 ```bash
 python infer_ti2v_5b.py \
   --image input.jpg \
   --prompt "Camera slowly zooming in, glowing dynamic ambient light" \
+  --width 832 --height 480 \
+  --num_frames 81 \
   --output output/i2v_result.mp4
 ```
+
