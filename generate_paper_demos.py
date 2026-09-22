@@ -74,12 +74,48 @@ def main():
     args = parse_args()
     os.makedirs("output", exist_ok=True)
 
+    # 如果是全量批量模式，采用独立子进程运行每个案例：
+    # 彻底解决 Linux 容器内存碎片堆积导致的“第二个视频被杀 (Terminated)”问题
+    if args.all:
+        import sys
+        import subprocess
+        print("=== 启动【子进程内存隔离批处理模式】===")
+        print("特点：每生成完一个视频，进程完全退出并彻底释放 100% 内存给操作系统，杜绝内存累积！")
+        for c in [1, 2, 3, 4]:
+            out_file = CASES[c]["output"]
+            if os.path.exists(out_file) and os.path.getsize(out_file) > 10000:
+                print(f"\n✓ 案例 {c} ({CASES[c]['name']}) 已经生成过 ({out_file})，跳过以节省时间。")
+                continue
+
+            print(f"\n=======================================================")
+            print(f"🚀 正在为案例 {c} 启动全新的独立无泄漏进程...")
+            print(f"=======================================================")
+            cmd = [
+                sys.executable, __file__,
+                "--case", str(c),
+                "--num_frames", str(args.num_frames),
+                "--width", str(args.width),
+                "--height", str(args.height),
+                "--steps", str(args.steps)
+            ]
+            if args.safe:
+                cmd.append("--safe")
+            res = subprocess.run(cmd)
+            if res.returncode != 0:
+                print(f"⚠️ 案例 {c} 进程异常退出 (退出码 {res.returncode})，尝试启用 --safe 降级重试...")
+                retry_cmd = cmd + ["--safe"]
+                subprocess.run(retry_cmd)
+
+        print("\n🎉 全部案例批量处理完成！请查看 output/ 目录。")
+        return
+
     # 1. 确定模型路径
     if os.path.exists(args.model_id):
         model_path = args.model_id
     else:
         print(f"本地未找到 {args.model_id}，正在从魔搭验证/下载...")
         model_path = snapshot_download("Wan-AI/Wan2.2-TI2V-5B-Diffusers")
+
 
     # 2. 加载 WanPipeline
     print("=== 加载 Wan2.2 Pipeline 并注入 V100 16G 显存优化 ===")
