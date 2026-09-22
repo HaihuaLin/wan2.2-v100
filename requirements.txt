@@ -1,9 +1,15 @@
+# Core Deep Learning
 diffusers>=0.31.0
 transformers>=4.49.0
 accelerate>=1.1.1
 modelscope>=1.19.0
-imageio[ffmpeg]>=2.34.0
 safetensors>=0.4.3
 sentencepiece>=0.2.0
-torchvision
-torchaudio
+
+# Critical: Pin numpy < 2.0 to avoid NumPy 2.x ABI incompatibility
+numpy>=1.24.0,<2.0.0
+
+# Media processing
+imageio[ffmpeg]>=2.34.0
+pillow>=10.0.0
+
