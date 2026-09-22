@@ -51,18 +51,24 @@ def parse_args():
         help="选择生成的论文案例 (1: 盗窃, 2: 街头冲突, 3: 归还物品假阳性, 4: 夜雨破坏)"
     )
     parser.add_argument(
+        "--ultra", 
+        action="store_true", 
+        help="【画质天花板模式】自动配置: 720P (1280x720) 极清 + 50 步精细采样 + 3秒 (49帧)，不爆内存且画质最高"
+    )
+    parser.add_argument(
         "--num_frames", 
         type=int, 
         default=49, 
         choices=[49, 81],
         help="生成帧数: 49 (约3秒, 防容器内存溢出极稳档); 81 (约5秒满血档)"
     )
-    parser.add_argument("--width", type=int, default=832, help="视频宽度 (建议: 832 或 768)")
-    parser.add_argument("--height", type=int, default=480, help="视频高度 (建议: 480 或 432)")
+    parser.add_argument("--width", type=int, default=832, help="视频宽度 (建议: 832 或 1280)")
+    parser.add_argument("--height", type=int, default=480, help="视频高度 (建议: 480 或 720)")
     parser.add_argument("--all", action="store_true", help="连续批量生成全部 4 个案例")
-    parser.add_argument("--hd", action="store_true", help="开启 720P (1280x720) 极清模式")
-    parser.add_argument("--steps", type=int, default=40, help="采样步数 (默认 40 步以获得极致细节)")
+    parser.add_argument("--hd", action="store_true", help="开启 720P (1280x720) 模式")
+    parser.add_argument("--steps", type=int, default=40, help="采样步数 (默认 40 步; --ultra 模式自动为 50 步)")
     return parser.parse_args()
+
 
 
 def main():
@@ -106,34 +112,47 @@ def main():
     import gc
 
     # 3. 确定分辨率与时长参数
-    num_frames = args.num_frames
+    if args.ultra:
+        print("★ 已激活【画质天花板模式】: 720P (1280x720) + 50 步深度去噪 + 3.06秒 (49帧)")
+        width = 1280
+        height = 720
+        steps = 50
+        num_frames = 49
+    else:
+        num_frames = args.num_frames
+        width = 1280 if args.hd else args.width
+        height = 720 if args.hd else args.height
+        steps = args.steps
+
     fps = 16
     duration = round(num_frames / fps, 2)
-    width = 1280 if args.hd else args.width
-    height = 720 if args.hd else args.height
-
     selected_cases = [1, 2, 3, 4] if args.all else [args.case]
 
     for case_id in selected_cases:
         info = CASES[case_id]
+        prompt = info["prompt"]
+        if args.ultra:
+            prompt += ", cinematic lighting, photorealistic, 8k uhd, sharp focus, masterpiece, crystal clear surveillance details"
+
         print(f"\n=======================================================")
         print(f"🎬 开始生成案例 {case_id}: {info['name']}")
         print(f"  时长: {duration} 秒 ({num_frames} 帧 @ {fps} fps)")
-        print(f"  画质规格: {width}x{height} | 推理步数: {args.steps} 步")
-        print(f"  提示词: {info['prompt']}")
+        print(f"  画质规格: {width}x{height} | 推理步数: {steps} 步")
+        print(f"  提示词: {prompt}")
         print(f"=======================================================")
 
         gc.collect()
         torch.cuda.empty_cache()
 
         result = pipe(
-            prompt=info["prompt"],
+            prompt=prompt,
             width=width,
             height=height,
             num_frames=num_frames,
-            num_inference_steps=args.steps,
-            guidance_scale=7.5
+            num_inference_steps=steps,
+            guidance_scale=7.0
         )
+
 
         video_frames = result.frames[0]
         export_to_video(video_frames, info["output"], fps=fps)
