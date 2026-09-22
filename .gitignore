@@ -1,0 +1,36 @@
+# Python / PyTorch Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+conda-env/
+
+# Model weights & Checkpoints (Do NOT commit huge models)
+models/
+checkpoints/
+Wan2.2-*/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+
+# Outputs & Temporary media
+output/
+outputs/
+*.mp4
+*.gif
+*.png
+*.jpg
+*.jpeg
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.log
